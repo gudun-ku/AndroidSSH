@@ -69,6 +69,13 @@
                 android:textCursorDrawable="@null" />
 
             <Button
+                android:id="@+id/sendbutton"
+                style="@style/buttonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sendcommand" />
+
+            <Button
                 android:id="@+id/sftpbutton"
                 style="@style/buttonStyle"
                 android:layout_width="wrap_content"

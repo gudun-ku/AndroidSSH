@@ -7,6 +7,7 @@ import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.Editable;
@@ -36,10 +37,12 @@ public class MainActivity extends Activity implements OnClickListener {
     private TextView mConnectStatus;
 
     private SshEditText mCommandEdit;
-    private Button mButton, mEndSessionBtn, mSftpButton;
+    private Button mButton, mEndSessionBtn, mSftpButton, mSendButton;
 
     private Handler mHandler;
     private Handler mTvHandler;
+    private Handler mSSHProcessHandler;
+
     private String mLastLine;
 
     @Override
@@ -53,17 +56,22 @@ public class MainActivity extends Activity implements OnClickListener {
         mButton = (Button) findViewById(R.id.enterbutton);
         mEndSessionBtn = (Button) findViewById(R.id.endsessionbutton);
         mSftpButton = (Button) findViewById(R.id.sftpbutton);
+        mSendButton = (Button) findViewById(R.id.sendbutton);
+
         mCommandEdit = (SshEditText) findViewById(R.id.command);
         mConnectStatus = (TextView) findViewById(R.id.connectstatus);
         // set onclicklistener
         mButton.setOnClickListener(this);
         mEndSessionBtn.setOnClickListener(this);
         mSftpButton.setOnClickListener(this);
+        mSendButton.setOnClickListener(this);
+
 
         mConnectStatus.setText("Connect Status: NOT CONNECTED");
         //handlers
         mHandler = new Handler();
         mTvHandler = new Handler();
+
 
         //text change listener, for getting the current input changes.
         mCommandEdit.addTextChangedListener(new TextWatcher() {
@@ -86,39 +94,70 @@ public class MainActivity extends Activity implements OnClickListener {
 
 
         mCommandEdit.setOnEditorActionListener(
-                new TextView.OnEditorActionListener() {
-                    @Override
-                    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                        //Log.d(TAG, "editor action " + event);
-                        if (isEditTextEmpty(mCommandEdit)) {
-                            return false;
-                        }
-
-                        // run command
-                        else {
-                            if (event == null || event.getAction() != KeyEvent.ACTION_DOWN) {
-                                return false;
-                            }
-                            // get the last line of terminal
-                            String command = getLastLine();
-                            ExecTaskCallbackHandler t = new ExecTaskCallbackHandler() {
-                                @Override
-                                public void onFail() {
-                                    makeToast(R.string.taskfail);
-                                }
-
-                                @Override
-                                public void onComplete(String completeString) {
-                                }
-                            };
-                            mCommandEdit.AddLastInput(command);
-                            SessionController.getSessionController().executeCommand(mHandler, mCommandEdit, t, command);
-                            return false;
-                        }
+            new TextView.OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                    //Log.d(TAG, "editor action " + event);
+                    if (event == null || event.getAction() != KeyEvent.ACTION_DOWN) {
+                        return false;
                     }
+                    return doEditorAction();
                 }
+            }
+
         );
     }
+
+
+    public boolean doEditorAction() {
+        if (isEditTextEmpty(mCommandEdit)) {
+            return false;
+        }
+        // run command
+        else {
+
+            // get the last line of terminal
+            final String command = getLastLine();
+            ShellCommandExecutor she = new ShellCommandExecutor();
+            she.execute(command);
+
+
+
+            mCommandEdit.AddLastInput(command);
+            return false;
+        }
+    }
+
+    private class ShellCommandExecutor extends AsyncTask<String, String, Void> {
+        @Override
+        protected Void doInBackground(String... commands) {
+            final ExecTaskCallbackHandler t = new ExecTaskCallbackHandler() {
+                @Override
+                public void onFail() {
+                    makeToast(R.string.taskfail);
+                }
+
+                @Override
+                public void onComplete(String completeString) {
+                }
+            };
+            StringBuffer commandBuilder = new StringBuffer("");
+            for (String command : commands) {
+                commandBuilder.append(command);
+            }
+
+            SessionController.getSessionController().executeCommand(mTvHandler, mCommandEdit, t, commandBuilder.toString());
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            super.onPostExecute(aVoid);
+        }
+    }
+
+
 
 
     /**
@@ -210,6 +249,8 @@ public class MainActivity extends Activity implements OnClickListener {
                 Log.e(TAG, "Disconnect exception " + t.getMessage());
             }
 
+        } else if (v == this.mSendButton) {
+            doEditorAction();
         }
 
     }
